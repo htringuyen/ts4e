@@ -15,7 +15,7 @@ Classification layer centered at Classifier API. The classifier connects to a do
 where each span contains sufficient info for use cases such as syntax highlighting. Client of this API will provide the classifier 
 a callback that will be call each time the classification changed, i.e. underlying document changed and the classification spans updated.
 
-![classification.puml](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/htringuyen/ts4e/refs/heads/main/design-docs/resources/core-layer/classification.puml)
+![classification-dia1.puml](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/htringuyen/ts4e/refs/heads/main/design-docs/resources/core-layer/classification-dia1.puml)
 
 ## TSDocument APIs
 Document layer centered at TSDocument API. A TSDocument is a logical presentation of a text document. The actual read/write in the 
