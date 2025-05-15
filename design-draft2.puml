@@ -1,0 +1,157 @@
+@startuml
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+
+'--------------------------------------------------
+' Layer: Text Buffer Layer
+'--------------------------------------------------
+package "Text Buffer Layer" {
+    interface TextBuffer {
+        +String getText()
+        +String getText(int fromOffset, _Point toPoint)
+        +String getModificationStamp()
+        +void addChangeConsumer(BufferChangeConsumer consumer)
+        +SerialScheduler getChangeScheduler()
+    }
+
+    interface BufferChangeConsumer {
+        void accept(BufferChange change)
+    }
+
+    class BufferChange {
+        +long modificationStamp()
+        +int startByte()
+        +int oldEndByte()
+        +int newEndByte()
+        +_Point startPoint()
+        +_Point oldEndPoint()
+        +_Point newEndPoint()
+    }
+}
+
+'--------------------------------------------------
+' Layer: Document Checkpoint Layer
+'--------------------------------------------------
+package "Checkpoint Layer" {
+    interface DocumentCheckpoint {
+        +boolean isValid()
+        +DocumentCheckpoint addInvalidationCallback(Runnable callback)
+        +<V> CheckpointTask<V> execute(Callable<V> task)
+        +<V> CheckpointTask<V> executeAsync(Callable<V> task)
+        +CheckpointTask<Void> execute(Runnable task)
+        +CheckpointTask<Void> executeAsync(Runnable task)
+    }
+
+    interface CheckpointTask<V> {
+        +CheckpointTask<V> onFailed(Runnable callback)
+        +CheckpointTask<V> thenConsume(Consumer<V> consumer)
+        +CheckpointTask<V> thenConsumeSerially(Consumer<V> consumer)
+        +CheckpointTask<V> thenConsumeSerially(Consumer<V> consumer, SerialScheduler scheduler)
+    }
+
+    interface CheckpointManager {
+        +void registerDocument(TSDocument document)
+        +DocumentCheckpoint newCheckpointFor(TSDocument document)
+    }
+
+    interface SerialScheduler {
+        +void submit(Runnable task)
+    }
+}
+
+'--------------------------------------------------
+' Layer: Document Layer
+'--------------------------------------------------
+package "Document Layer" {
+    interface TSDocument {
+        +TextBuffer getTextBuffer()
+        +DocumentDescriptor getDescriptor()
+        +void addTreeUpdateListener(TreeUpdateListener listener)
+        +void addTreeUpdateStrategy(TreeUpdateStrategy strategy)
+        +String getText()
+        +String getText(int offset, _Point point)
+    }
+
+    interface SyntaxTree {
+        +_Tree getUnderlyingTree()
+        +String getLanguage()
+        +List<SyntaxTree> getInjectedTrees()
+    }
+
+    interface TreeUpdateStrategy {
+        +boolean shouldUpdate(List<BufferChange> changes)
+    }
+
+    interface TreeUpdateListener {
+        +void initialize(SyntaxTree tree)
+        +void treeUpdated(SyntaxTree oldTree, SyntaxTree newTree)
+    }
+
+    interface DocumentManager {
+        +TSDocument getDocument(DocumentDescriptor dd)
+    }
+
+    class DocumentDescriptor {
+        +String project()
+        +String name()
+        +String mainLanguage()
+        +boolean shouldIncludeInjectedLanguages()
+    }
+}
+
+'--------------------------------------------------
+' Layer: Parser Layer (Tree-sitter)
+'--------------------------------------------------
+package "Parser Layer (Tree-sitter)" {
+    interface ParserManager {
+        +SafeParser getParser(ParserDescriptor pd)
+        +List<ParserDescriptor> getDescriptorsByLanguage(String lang)
+    }
+
+    interface SafeParser {
+        +void close()
+        +_Parser unwrap()
+        +parse(String text, _Tree oldTree, Range includeRange)
+        +void cancelParsing()
+    }
+
+    class ParserDescriptor {
+        +String language()
+        +String library()
+        +String injectionQuery()
+    }
+
+    class "_Parser" <<TreeSitter API>>
+    class "_Tree" <<TreeSitter API>>
+    class "_Point" <<TreeSitter API>> {
+        +int row()
+        +int column()
+    }
+
+    class "Range" <<TreeSitter API>>
+}
+
+'--------------------------------------------------
+' Connections (cross-layer dependencies)
+'--------------------------------------------------
+TSDocument --> TextBuffer
+TSDocument --> TreeUpdateListener
+TSDocument --> TreeUpdateStrategy
+TSDocument --> DocumentDescriptor
+TSDocument --> SyntaxTree
+SyntaxTree --> _Tree
+SyntaxTree --> SyntaxTree
+
+BufferChange --> _Point
+TreeUpdateStrategy --> BufferChange
+
+DocumentCheckpoint --> CheckpointTask
+CheckpointTask --> SerialScheduler
+
+ParserManager --> ParserDescriptor
+ParserManager --> SafeParser
+SafeParser --> _Parser
+SafeParser --> _Tree
+
+@enduml
