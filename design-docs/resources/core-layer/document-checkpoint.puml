@@ -1,0 +1,52 @@
+@startuml
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam padding 5
+skinparam backgroundColor white
+skinparam ArrowColor black
+'skinparam nodesep 20
+skinparam ranksep 25
+skinparam defaultFontSize 14
+skinparam arrowFontSize 13
+skinparam arrowFontColor black
+skinparam classAttributeIconSize 8
+'skinparam packageFontSize 14
+skinparam frameFontSize 16
+skinparam packageFontStyle bold
+skinparam shadowing false
+' Force portrait orientation
+top to bottom direction
+
+frame "DocumentCheckpoint APIs" as CheckpointLayer #D6FFD2 {
+  interface DocumentCheckpoint {
+    +{static}boolean isBound()
+    +{static}DocumentCheckpoint boundCheckpoint()
+    +boolean isValid()
+    +void addInvalidationCallback(Runnable r)
+    +CheckpointTask<V> execute(Callable<V> c)
+    +CheckpointTask<V> executeAsync(Callable<V> c)
+    +CheckpointTask<Void> execute(Runnable r)
+    +CheckpointTask<Void> executeAsync(Runnable r)
+  }
+
+  interface CheckpointTask<V> {
+    +CheckpointTask<V> onFailed(Runnable r)
+    +CheckpointTask<V> thenConsume(Consumer<V> c)
+    +CheckpointTask<V> thenConsumeSerially(Consumer<V> c)
+  }
+
+  interface SerialScheduler {
+    +void submit(Runnable r)
+  }
+
+  interface CheckpointManager {
+    +void registerDocument(TSDocument doc)
+    +DocumentCheckpoint newCheckpointFor(TSDocument doc)
+  }
+}
+
+' Checkpoint Layer connections
+CheckpointManager --> DocumentCheckpoint : creates
+DocumentCheckpoint --> CheckpointTask : produces
+DocumentCheckpoint --> SerialScheduler : uses
+@enduml

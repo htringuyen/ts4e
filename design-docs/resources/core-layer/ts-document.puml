@@ -1,0 +1,63 @@
+@startuml
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam padding 5
+skinparam backgroundColor white
+skinparam ArrowColor black
+'skinparam nodesep 20
+skinparam ranksep 25
+skinparam defaultFontSize 14
+skinparam arrowFontSize 13
+skinparam arrowFontColor black
+skinparam classAttributeIconSize 8
+'skinparam packageFontSize 14
+skinparam frameFontSize 16
+skinparam packageFontStyle bold
+skinparam shadowing false
+' Force portrait orientation
+top to bottom direction
+
+frame "Document APIs" as DocumentLayer #FFE6CC {
+  interface TSDocument {
+    +TextBuffer getTextBuffer()
+    +DocumentDescriptor getDescriptor()
+    +void addTreeUpdateListener(TreeUpdateListener l)
+    +void addTreeUpdateStrategy(TreeUpdateStrategy s)
+    +String getText()
+    +String getText(int offset, Point point)
+  }
+
+  interface SyntaxTree {
+    +Tree getUnderlyingTree()
+    +String getLanguage()
+    +List<SyntaxTree> getInjectedTrees()
+  }
+
+  interface TreeUpdateListener {
+    +void initialize(SyntaxTree tree)
+    +void treeUpdated(SyntaxTree oldTree, SyntaxTree newTree)
+  }
+
+  interface TreeUpdateStrategy {
+    +boolean shouldUpdate(List<BufferChange> c)
+  }
+
+  interface DocumentManager {
+    +TSDocument getDocument(DocumentDescriptor d)
+  }
+
+  class DocumentDescriptor {
+    +String project()
+    +String name()
+    +String mainLanguage()
+    +boolean shouldIncludeInjectedLanguages()
+  }
+}
+
+' Document Layer connections
+DocumentManager --> TSDocument : manages
+TSDocument -up-> DocumentDescriptor : references
+TSDocument --> TreeUpdateListener : notifies
+TSDocument --> TreeUpdateStrategy : consults
+SyntaxTree <-- TSDocument : synchronize
+@enduml

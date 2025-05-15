@@ -1,0 +1,203 @@
+@startuml
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam padding 5
+skinparam backgroundColor white
+skinparam ArrowColor black
+'skinparam nodesep 20
+skinparam ranksep 25
+skinparam defaultFontSize 14
+skinparam arrowFontSize 13
+skinparam arrowFontColor black
+skinparam classAttributeIconSize 8
+'skinparam packageFontSize 14
+skinparam frameFontSize 16
+skinparam packageFontStyle bold
+skinparam shadowing false
+' Force portrait orientation
+top to bottom direction
+
+' Define layers as packages - in flow order from top to bottom
+'package "External API Layer (Eclipse Editor, etc)" as ExternalLayer #F0F0F0 {
+'}
+
+frame "Classification APIs" as ClassificationLayer #FFD6E0 {
+  interface Classifier {
+      +void connect(TSDocument doc)
+      +void addClassificationListener(ClassificationListener l)
+  }
+
+  interface ClassificationListener {
+    +void initialize(List<ClassificationSpan> spans)
+    +void classificationUpdated(List<ClassificationSpan> spans)
+  }
+
+  class ClassificationSpan {
+    +int offset()
+    +int length()
+    +ClassificationType classificationType()
+  }
+
+  interface ClassificationType {
+    +String getName()
+    +ClassificationType getBaseTypes()
+    +boolean isOfType(ClassificationType ct)
+  }
+}
+
+frame "Document APIs" as DocumentLayer #FFE6CC {
+  interface TSDocument {
+    +TextBuffer getTextBuffer()
+    +DocumentDescriptor getDescriptor()
+    +void addTreeUpdateListener(TreeUpdateListener l)
+    +void addTreeUpdateStrategy(TreeUpdateStrategy s)
+    +String getText()
+    +String getText(int offset, Point point)
+  }
+
+  interface SyntaxTree {
+    +Tree getUnderlyingTree()
+    +String getLanguage()
+    +List<SyntaxTree> getInjectedTrees()
+  }
+
+  interface TreeUpdateListener {
+    +void initialize(SyntaxTree tree)
+    +void treeUpdated(SyntaxTree oldTree, SyntaxTree newTree)
+  }
+
+  interface TreeUpdateStrategy {
+    +boolean shouldUpdate(List<BufferChange> c)
+  }
+
+  interface DocumentManager {
+    +TSDocument getDocument(DocumentDescriptor d)
+  }
+
+  class DocumentDescriptor {
+    +String project()
+    +String name()
+    +String mainLanguage()
+    +boolean shouldIncludeInjectedLanguages()
+  }
+}
+
+frame "Document Checkpoint APIs" as CheckpointLayer #D6FFD2 {
+  interface DocumentCheckpoint {
+    +{static}boolean isBound()
+    +{static}DocumentCheckpoint boundCheckpoint()
+    +boolean isValid()
+    +void addInvalidationCallback(Runnable r)
+    +CheckpointTask<V> execute(Callable<V> c)
+    +CheckpointTask<V> executeAsync(Callable<V> c)
+    +CheckpointTask<Void> execute(Runnable r)
+    +CheckpointTask<Void> executeAsync(Runnable r)
+  }
+
+  interface CheckpointTask<V> {
+    +CheckpointTask<V> onFailed(Runnable r)
+    +CheckpointTask<V> thenConsume(Consumer<V> c)
+    +CheckpointTask<V> thenConsumeSerially(Consumer<V> c)
+  }
+
+  interface SerialScheduler {
+    +void submit(Runnable r)
+  }
+
+  interface CheckpointManager {
+    +void registerDocument(TSDocument doc)
+    +DocumentCheckpoint newCheckpointFor(TSDocument doc)
+  }
+}
+
+frame "Text Buffer APIs" as TextBufferLayer #DCEBFF {
+  interface TextBuffer {
+    +String getText()
+    +String getText(int fromOffset, Point point)
+    +long getModificationStamp()
+    +void addChangeConsumer(BufferChangeConsumer c)
+    +SerialScheduler getChangeScheduler()
+  }
+
+  interface BufferChangeConsumer {
+    +void accept(BufferChange c)
+  }
+
+  class BufferChange {
+    +long modificationStamp()
+    +int startByte()
+    +int oldEndByte()
+    +int newEndByte()
+    +Point startPoint()
+    +Point oldEndPoint()
+    +Point newEndPoint()
+  }
+}
+
+frame "Safe Parser APIs" as ParserLayer #FFF2CC {
+  interface ParserManager {
+    +SafeParser getParser(ParserDescriptor d)
+    +SafeParser getDescriptorsByLanguage(String s)
+  }
+
+  interface SafeParser {
+    +void close()
+    +Parser unwrap()
+    +Tree parse(String, Tree, Range)
+    +void cancelParsing()
+  }
+
+  class ParserDescriptor {
+    +String language()
+    +String library()
+    +String injectionQuery()
+  }
+}
+
+frame "TreeSitter API" as TreeSitterLayer #FFD2D2 {
+  class "_Point" as Point {
+    +int row()
+    +int column()
+  }
+  class "_Parser" as Parser
+  class "_Tree" as Tree
+
+}
+
+Classifier -down-> DocumentLayer : uses
+Classifier -right-> DocumentCheckpoint: boundTo
+TSDocument -right-> DocumentCheckpoint: create/boundTo
+TSDocument -down---> TextBuffer: read/listen
+TSDocument -down--> ParserLayer: uses
+TSDocument -down--> TreeSitterLayer : uses
+ParserLayer -right-> TreeSitterLayer
+
+
+' Classification Layer connections
+Classifier -up-> ClassificationListener : notifies
+ClassificationListener ..> ClassificationSpan : processes
+
+' Document Layer connections
+DocumentManager --> TSDocument : manages
+TSDocument -up-> DocumentDescriptor : references
+TSDocument --> TreeUpdateListener : notifies
+TSDocument --> TreeUpdateStrategy : consults
+SyntaxTree <-- TSDocument : synchronize
+
+' Text Buffer Layer connections
+TextBuffer -up-> BufferChangeConsumer : notifies
+BufferChangeConsumer ..> BufferChange : processes
+
+' Checkpoint Layer connections
+CheckpointManager --> DocumentCheckpoint : creates
+DocumentCheckpoint --> CheckpointTask : produces
+DocumentCheckpoint --> SerialScheduler : uses
+
+' Parser Layer connections
+ParserManager -right-> SafeParser : manages
+SafeParser -right-> ParserDescriptor : configured by
+
+
+' TreeSitter API connections
+Parser -[hidden]right-> Tree
+@enduml

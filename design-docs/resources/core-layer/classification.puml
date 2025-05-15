@@ -1,0 +1,51 @@
+@startuml
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam padding 5
+skinparam backgroundColor white
+skinparam ArrowColor black
+'skinparam nodesep 20
+skinparam ranksep 25
+skinparam defaultFontSize 14
+skinparam arrowFontSize 13
+skinparam arrowFontColor black
+skinparam classAttributeIconSize 8
+'skinparam packageFontSize 14
+skinparam frameFontSize 16
+skinparam packageFontStyle bold
+skinparam shadowing false
+' Force portrait orientation
+top to bottom direction
+
+
+frame "Classification APIs" as ClassificationLayer #FFD6E0 {
+  interface Classifier {
+      +void connect(TSDocument doc)
+      +void addClassificationListener(ClassificationListener l)
+  }
+
+  interface ClassificationListener {
+    +void initialize(List<ClassificationSpan> spans)
+    +void classificationUpdated(List<ClassificationSpan> spans)
+  }
+
+  class ClassificationSpan {
+    +int offset()
+    +int length()
+    +ClassificationType classificationType()
+  }
+
+  interface ClassificationType {
+    +String getName()
+    +ClassificationType getBaseTypes()
+    +boolean isOfType(ClassificationType ct)
+  }
+}
+
+
+
+
+' Classification Layer connections
+Classifier -up-> ClassificationListener : notifies
+ClassificationListener ..> ClassificationSpan : processes
+@enduml

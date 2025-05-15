@@ -1,0 +1,208 @@
+@startuml
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam padding 10
+skinparam backgroundColor white
+skinparam ArrowColor black
+skinparam nodesep 80
+skinparam ranksep 80
+
+' Define layers as packages - in flow order from top to bottom
+package "External API Layer (Eclipse Editor, etc)" as ExternalLayer #F0F0F0 {
+}
+
+package "Classification Layer" as ClassificationLayer #FFD6E0 {
+  interface Classifier {
+    +void connect(TSDocument document)
+    +void addClassificationListener(ClassificationListener listener)
+  }
+
+  interface ClassificationListener {
+    +void initialize(List<ClassificationSpan> spans)
+    +void classificationUpdated(List<ClassificationSpan> spans)
+  }
+
+  class ClassificationSpan {
+    +int offset()
+    +int length()
+    +ClassificationType classificationType()
+  }
+
+  interface ClassificationType {
+    +String getName()
+    +List<ClassificationType> getBaseTypes()
+    +boolean isOfType(ClassificationType type)
+  }
+}
+
+package "Document Layer" as DocumentLayer #FFE6CC {
+  interface TSDocument {
+    +TextBuffer getTextBuffer()
+    +DocumentDescriptor getDescriptor()
+    +void addTreeUpdateListener(TreeUpdateListener listener)
+    +void addTreeUpdateStrategy(TreeUpdateStrategy strategy)
+    +String getText()
+    +String getText(int offset, _Point point)
+  }
+
+  interface SyntaxTree {
+    +_Tree getUnderlyingTree()
+    +String getLanguage()
+    +List<SyntaxTree> getInjectedTrees()
+  }
+
+  interface TreeUpdateListener {
+    +void initialize(SyntaxTree tree)
+    +void treeUpdated(SyntaxTree oldTree, SyntaxTree newTree)
+  }
+
+  interface TreeUpdateStrategy {
+    +boolean shouldUpdate(List<BufferChange> changes)
+  }
+
+  interface DocumentManager {
+    +getDocument(DocumentDescriptor dd)
+  }
+
+  class DocumentDescriptor {
+    +String project()
+    +String name()
+    +String mainLanguage()
+    +boolean shouldIncludeInjectedLanguages()
+  }
+}
+
+package "Checkpoint Layer" as CheckpointLayer #D6FFD2 {
+  interface DocumentCheckpoint {
+    +{static} boolean isBound()
+    +{static} DocumentCheckpoint boundCheckpoint()
+    +boolean isValid()
+    +DocumentCheckpoint addInvalidationCallback(Runnable callback)
+    +<V> CheckpointTask<V> execute(Callable<V> task)
+    +<V> CheckpointTask<V> executeAsync(Callable<V> task)
+    +CheckpointTask<Void> execute(Runnable task)
+    +CheckpointTask<Void> executeAsync(Runnable task)
+  }
+
+  interface CheckpointTask<V> {
+    +CheckpointTask<V> onFailed(Runnable callback)
+    +CheckpointTask<V> thenConsume(Consumer<V> consumer)
+    +CheckpointTask<V> thenConsumeSerially(Consumer<V> consumer)
+    +CheckpointTask<V> thenConsumeSerially(Consumer<V> consumer, SerialScheduler scheduler)
+  }
+
+  interface SerialScheduler {
+      +void submit(Runnable task)
+  }
+
+  interface CheckpointManager {
+    +void registerDocument(TSDocument document)
+    +DocumentCheckpoint newCheckpointFor(TSDocument document)
+  }
+}
+
+package "Text Buffer Layer" as TextBufferLayer #DCEBFF {
+  interface TextBuffer {
+    +String getText()
+    +String getText(int fromOffset, _Point toPoint)
+    +String getModificationStamp()
+    +void addChangeConsumer(BufferChangeConsumer consumer)
+    +SerialScheduler getChangeScheduler()
+  }
+
+  interface BufferChangeConsumer {
+    void accept(BufferChange change)
+  }
+
+  class BufferChange {
+    +long modificationStamp()
+    +int startByte()
+    +int oldEndByte()
+    +int newEndByte()
+    +_Point startPoint()
+    +_Point oldEndPoint()
+    +_Point newEndPoint()
+  }
+}
+
+package "Parser Layer" as ParserLayer #FFF2CC {
+  interface ParserManager {
+    +SafeParser getParser(ParserDescriptor pd)
+    +List<ParserDescriptor> getDescriptorsByLanguage(String lang)
+  }
+
+  interface SafeParser {
+    +void close()
+    +_Parser unwrap()
+    +parse(String text, Tree oldTree, Range includeRange)
+    +void cancelParsing()
+  }
+
+  class ParserDescriptor {
+    +String language()
+    +String library()
+    +String injectionQuery()
+  }
+}
+
+package "TreeSitter API" as TreeSitterLayer #FFD2D2 {
+  class "_Parser" as Parser
+  class "_Tree" as Tree
+  class "_Point" as Point {
+    +int row()
+    +int column()
+  }
+}
+
+' Direct Usage Flow - Top to Bottom
+' External Layer --> Document Layer --> Text Buffer Layer --> TreeSitter API
+' Callback Flow - Bottom to Top
+
+' Layer Interactions - External API
+ExternalLayer -down-> TextBufferLayer : provides text content
+
+' Classification Layer - Public API
+ClassificationLayer -down-> TSDocument : connects to
+TreeUpdateListener <|.. Classifier : implements to receive tree updates
+Classifier -up-> ClassificationListener : notifies via callbacks
+ClassificationListener ..> ClassificationSpan : processes
+
+' Document Layer - Core of Framework
+DocumentManager --> TSDocument : creates/manages
+TSDocument -up-> DocumentDescriptor : references
+TSDocument -right-> TreeUpdateListener : notifies via callbacks
+TSDocument -left-> TreeUpdateStrategy : consults for update decisions
+SyntaxTree <--> TSDocument : creates/manages
+
+' Text Buffer Layer connections
+TSDocument -down-> TextBuffer : reads text from
+BufferChangeConsumer <|.. TSDocument : implements to receive text changes
+TextBuffer -up-> BufferChangeConsumer : notifies via callbacks
+BufferChangeConsumer ..> BufferChange : processes
+
+' Checkpoint Layer - Critical for State Management
+TSDocument -right-> CheckpointManager : uses
+CheckpointManager --> DocumentCheckpoint : creates for TSDocument
+DocumentCheckpoint --> CheckpointTask : produces
+DocumentCheckpoint --> SerialScheduler : may use
+
+' Important note about DocumentCheckpoint usage
+
+' Parser Layer connections
+TSDocument -down-> ParserManager : uses to build syntax trees
+ParserManager --> SafeParser : creates/manages
+SafeParser --> ParserDescriptor : configured by
+SyntaxTree -down-> Tree : wraps
+
+' TreeSitter API connections
+SafeParser -down-> Parser : wraps
+TSDocument ..> Point : uses for positions
+
+' Critical flow annotation
+
+' Callback flow (simplified)
+TextBuffer ..> TSDocument : text change notifications
+TSDocument ..> TreeUpdateListener : tree update notifications
+TreeUpdateListener ..> ClassificationListener : classification updates
+
+@enduml

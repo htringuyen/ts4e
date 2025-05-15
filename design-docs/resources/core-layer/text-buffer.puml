@@ -1,0 +1,48 @@
+@startuml
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam padding 5
+skinparam backgroundColor white
+skinparam ArrowColor black
+'skinparam nodesep 20
+skinparam ranksep 25
+skinparam defaultFontSize 14
+skinparam arrowFontSize 13
+skinparam arrowFontColor black
+skinparam classAttributeIconSize 8
+'skinparam packageFontSize 14
+skinparam frameFontSize 16
+skinparam packageFontStyle bold
+skinparam shadowing false
+' Force portrait orientation
+top to bottom direction
+
+frame "Text Buffer APIs" as TextBufferLayer #DCEBFF {
+  interface TextBuffer {
+    +String getText()
+    +String getText(int fromOffset, Point point)
+    +long getModificationStamp()
+    +void addChangeConsumer(BufferChangeConsumer c)
+    +SerialScheduler getChangeScheduler()
+  }
+
+  interface BufferChangeConsumer {
+    +void accept(BufferChange c)
+  }
+
+  class BufferChange {
+    +long modificationStamp()
+    +int startByte()
+    +int oldEndByte()
+    +int newEndByte()
+    +Point startPoint()
+    +Point oldEndPoint()
+    +Point newEndPoint()
+  }
+}
+
+
+' Text Buffer Layer connections
+TextBuffer -up-> BufferChangeConsumer : notifies
+BufferChangeConsumer ..> BufferChange : processes
+@enduml
