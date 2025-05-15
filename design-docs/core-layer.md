@@ -7,7 +7,7 @@ The core layer includes following API groups:
 - SafeParser APIs: a thin wrapper on top of TreeSitter APIs, that manages a parser pool and ensures thread safety for the parser it provides
 - TextBuffer APIs: a bridge between TS4E and the text editor frameworks like that of Eclipse
 
-![full-diagram.puml](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/htringuyen/ts4e/refs/heads/main/design-docs/resources/core-layer/full-picture.puml)
+![full-diagram.puml](http://www.plantuml.com/plantuml/proxy?src=https://raw.githubusercontent.com/htringuyen/ts4e/refs/heads/main/design-docs/resources/core-layer/full-diagram.puml)
 
 ## Classification APIs
 
