@@ -42,9 +42,6 @@ frame "Classification APIs" as ClassificationLayer #FFD6E0 {
   }
 }
 
-
-
-
 ' Classification Layer connections
 Classifier -up-> ClassificationListener : notifies
 ClassificationListener ..> ClassificationSpan : processes
